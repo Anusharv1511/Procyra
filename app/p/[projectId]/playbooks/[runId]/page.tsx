@@ -4,7 +4,7 @@ import { advancePlaybook } from "@/app/actions";
 import { PLAYBOOKS } from "@/lib/playbooks";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
@@ -20,6 +20,29 @@ export default async function PlaybookRun({ params }: { params: { projectId: str
   const step = pb.steps[run.stepIndex];
   const state = (run.state ?? {}) as Record<string, any>;
   const done = run.status === "completed";
+
+  // Fix 7 — read-only summary of real data that already exists on this project,
+  // shown while a run is active so the step acknowledges work done elsewhere.
+  // Pulled from existing tables only; nothing about the step's inputs changes.
+  const [streams, capas, fmeas, ncCount] = done ? [[], [], [], 0] as any : await Promise.all([
+    db.select().from(t.streams).where(eq(t.streams.projectId, project.id)),
+    db.select().from(t.capas).where(eq(t.capas.projectId, project.id)),
+    db.select().from(t.fmeas).where(eq(t.fmeas.projectId, project.id)),
+    db.select({ n: sql<number>`count(*)` }).from(t.nonConformances)
+      .where(eq(t.nonConformances.projectId, project.id)).then(r => Number(r[0]?.n ?? 0)),
+  ]);
+  const streamIds = (streams as any[]).map((s: any) => s.id);
+  const countsByStream: Record<string, number> = {};
+  if (streamIds.length) {
+    const rows = await db.select({ streamId: t.dataPoints.streamId, n: sql<number>`count(*)` })
+      .from(t.dataPoints).where(inArray(t.dataPoints.streamId, streamIds))
+      .groupBy(t.dataPoints.streamId);
+    for (const r of rows) countsByStream[r.streamId] = Number(r.n);
+  }
+  const spcStreams = (streams as any[]).filter((s: any) => s.type.startsWith("SPC"));
+  const oeeStreams = (streams as any[]).filter((s: any) => s.type === "OEE");
+  const openCapas = (capas as any[]).filter((c: any) => c.status !== "closed" && c.status !== "verified");
+  const hasExisting = spcStreams.length || oeeStreams.length || openCapas.length || (fmeas as any[]).length || ncCount > 0;
 
   return (
     <div>
@@ -113,6 +136,42 @@ export default async function PlaybookRun({ params }: { params: { projectId: str
             </Card>
           </div>
           <div className="space-y-4">
+            {hasExisting ? (
+              <Card title="You already have (on this project)">
+                <p className="text-xs text-steel mb-2">Real data logged elsewhere in the app — worth checking before re-collecting anything. Informational only.</p>
+                <ul className="text-sm space-y-1.5">
+                  {spcStreams.map((s: any) => (
+                    <li key={s.id}>
+                      <Link className="text-accent font-semibold hover:underline" href={`/p/${project.id}/spc/${s.id}`}>SPC: {s.name}</Link>
+                      <span className="text-steel"> — {countsByStream[s.id] ?? 0} entr{(countsByStream[s.id] ?? 0) === 1 ? "y" : "ies"}</span>
+                    </li>
+                  ))}
+                  {oeeStreams.map((s: any) => (
+                    <li key={s.id}>
+                      <Link className="text-accent font-semibold hover:underline" href={`/p/${project.id}/oee/${s.id}`}>OEE: {s.name}</Link>
+                      <span className="text-steel"> — {countsByStream[s.id] ?? 0} entr{(countsByStream[s.id] ?? 0) === 1 ? "y" : "ies"}</span>
+                    </li>
+                  ))}
+                  {openCapas.map((c: any) => (
+                    <li key={c.id}>
+                      <Link className="text-accent font-semibold hover:underline" href={`/p/${project.id}/capa`}>CAPA: {c.title}</Link>
+                      <span className="text-steel"> — {String(c.status).replace("_", " ")}</span>
+                    </li>
+                  ))}
+                  {(fmeas as any[]).map((f: any) => (
+                    <li key={f.id}>
+                      <Link className="text-accent font-semibold hover:underline" href={`/p/${project.id}/fmea/${f.id}`}>FMEA: {f.name}</Link>
+                    </li>
+                  ))}
+                  {ncCount > 0 && (
+                    <li>
+                      <Link className="text-accent font-semibold hover:underline" href={`/p/${project.id}/nc`}>Defect log</Link>
+                      <span className="text-steel"> — {ncCount} entr{ncCount === 1 ? "y" : "ies"}</span>
+                    </li>
+                  )}
+                </ul>
+              </Card>
+            ) : null}
             <Card title="Progress so far">
               {Object.keys(state).length === 0
                 ? <p className="text-sm text-steel">Nothing captured yet.</p>

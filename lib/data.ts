@@ -1,5 +1,5 @@
 import { db, t } from "@/db";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, isNotNull } from "drizzle-orm";
 import { getSessionUserId } from "./auth";
 
 export async function myWorkspaces() {
@@ -13,11 +13,15 @@ export async function myWorkspaces() {
   return rows.map(r => r.ws);
 }
 
-export async function myProjects() {
+export async function myProjects(opts?: { archived?: boolean }) {
   const wss = await myWorkspaces();
   if (!wss.length) return [];
   const ps = await db.select().from(t.projects)
-    .where(inArray(t.projects.workspaceId, wss.map(w => w.id)))
+    .where(and(
+      inArray(t.projects.workspaceId, wss.map(w => w.id)),
+      // Archived projects are hidden from default lists (soft-delete, Fix 10).
+      opts?.archived ? isNotNull(t.projects.archivedAt) : isNull(t.projects.archivedAt),
+    ))
     .orderBy(desc(t.projects.createdAt));
   return ps.map(p => ({ ...p, workspace: wss.find(w => w.id === p.workspaceId)! }));
 }

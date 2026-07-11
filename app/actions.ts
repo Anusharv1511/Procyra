@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db, t } from "@/db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   hashPassword, verifyPassword, createSession, destroySession,
   getSessionUserId, requireProjectAccess,
@@ -78,6 +78,32 @@ export async function createProject(_prev: any, fd: FormData) {
   if (!name) return { error: "Project name is required." };
   const [p] = await db.insert(t.projects).values({ workspaceId, name, description: s(fd, "description") || null }).returning();
   redirect(`/p/${p.id}`);
+}
+
+/** Fix 10 — rename a project from the Projects list. */
+export async function renameProject(_prev: any, fd: FormData) {
+  const projectId = s(fd, "projectId"), name = s(fd, "name");
+  await requireProjectAccess(projectId);
+  if (!name) return { error: "Project name is required." };
+  await db.update(t.projects).set({ name }).where(eq(t.projects.id, projectId));
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  revalidatePath(`/p/${projectId}`);
+  return { ok: true, message: "Project renamed." };
+}
+
+/**
+ * Fix 10 — archive = soft-delete: sets/clears archived_at so the project is
+ * hidden from default lists. Nothing is destroyed; no hard delete exists.
+ */
+export async function setProjectArchived(_prev: any, fd: FormData) {
+  const projectId = s(fd, "projectId"), archived = s(fd, "archived") === "1";
+  await requireProjectAccess(projectId);
+  await db.update(t.projects).set({ archivedAt: archived ? new Date() : null })
+    .where(eq(t.projects.id, projectId));
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  return { ok: true, message: archived ? "Project archived — restore it any time from “Show archived”." : "Project restored." };
 }
 
 // ---------- streams & data points ----------
@@ -218,6 +244,26 @@ export async function upsertFmeaItem(_prev: any, fd: FormData) {
     linkedDefectCode: s(fd, "linkedDefectCode") || null,
   };
   if (!vals.processStep || !vals.failureMode) return { error: "Process step and failure mode are required." };
+
+  // Fix 5 — duplicate warning: on create (not edit), check for an existing row
+  // in this FMEA with the same process step + failure mode (case-insensitive,
+  // trimmed). Never blocks the save — the user confirms via confirmDuplicate.
+  if (!id && s(fd, "confirmDuplicate") !== "1") {
+    const [dup] = await db.select().from(t.fmeaItems).where(and(
+      eq(t.fmeaItems.fmeaId, fmeaId),
+      sql`lower(trim(${t.fmeaItems.processStep})) = ${vals.processStep.toLowerCase()}`,
+      sql`lower(trim(${t.fmeaItems.failureMode})) = ${vals.failureMode.toLowerCase()}`,
+    )).limit(1);
+    if (dup) {
+      return {
+        duplicate: {
+          id: dup.id, processStep: dup.processStep,
+          failureMode: dup.failureMode, rpn: dup.rpn,
+        },
+      };
+    }
+  }
+
   let itemId = id;
   if (id) {
     await db.update(t.fmeaItems).set(vals).where(eq(t.fmeaItems.id, id));
@@ -305,6 +351,25 @@ export async function setAlertStatus(_prev: any, fd: FormData) {
   revalidatePath(`/p/${projectId}`);
   revalidatePath("/dashboard");
   return { ok: true, message: status === "resolved" ? "Alert resolved." : "Alert acknowledged." };
+}
+
+/**
+ * Fix 9 — bulk "Resolve all" for the alert inbox, scoped to the ids the client
+ * currently has filtered/grouped. Only status changes; no alert logic touched.
+ */
+export async function resolveAlerts(_prev: any, fd: FormData) {
+  const ids = s(fd, "ids").split(",").map(x => x.trim()).filter(Boolean);
+  if (!ids.length) return { error: "No alerts to resolve." };
+  const rows = await db.select({ id: t.alerts.id, projectId: t.alerts.projectId })
+    .from(t.alerts).where(inArray(t.alerts.id, ids));
+  if (!rows.length) return { ok: true, message: "Nothing to resolve — those alerts are already gone." };
+  const projectIds = Array.from(new Set(rows.map(r => r.projectId)));
+  for (const pid of projectIds) await requireProjectAccess(pid);
+  await db.update(t.alerts).set({ status: "resolved", resolvedAt: new Date() })
+    .where(inArray(t.alerts.id, rows.map(r => r.id)));
+  for (const pid of projectIds) revalidatePath(`/p/${pid}`);
+  revalidatePath("/dashboard");
+  return { ok: true, message: `${rows.length} alert${rows.length === 1 ? "" : "s"} resolved.` };
 }
 
 // ---------- playbooks (Guided Mode) ----------

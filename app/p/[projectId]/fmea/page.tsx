@@ -1,4 +1,5 @@
 import { Card, PageHeader, EmptyState } from "@/components/ui";
+import AlertsBanner from "@/components/AlertsBanner";
 import { ActionForm, Submit } from "@/components/forms";
 import { createFmea } from "@/app/actions";
 import { getProject } from "@/lib/data";
@@ -19,6 +20,7 @@ export default async function FmeaList({ params }: { params: { projectId: string
   return (
     <div>
       <PageHeader eyebrow="Risk & compliance" title="FMEA" />
+      <AlertsBanner projectId={project.id} sourceTypes={["FMEA"]} scopeLabel="this project's FMEAs" inboxCategory="FMEA" />
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           {fmeas.length === 0 ? (

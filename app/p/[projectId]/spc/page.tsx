@@ -1,6 +1,8 @@
 import { Card, PageHeader, EmptyState, Badge } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
 import { createStream } from "@/app/actions";
+import NewSpcStreamFields from "@/components/NewSpcStreamFields";
+import AlertsBanner from "@/components/AlertsBanner";
 import { getProject } from "@/lib/data";
 import { defaults } from "@/lib/terminology";
 import { db, t } from "@/db";
@@ -28,6 +30,7 @@ export default async function SpcList({ params }: { params: { projectId: string 
   return (
     <div>
       <PageHeader eyebrow="Measure & analyze" title="Control charts (SPC)" />
+      <AlertsBanner projectId={project.id} sourceTypes={["SPC"]} scopeLabel="this project's SPC streams" inboxCategory="SPC" />
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           {spcStreams.length === 0 ? (
@@ -53,24 +56,15 @@ export default async function SpcList({ params }: { params: { projectId: string 
         <Card title="New SPC stream">
           <ActionForm action={createStream} className="space-y-3">
             <input type="hidden" name="projectId" value={project.id} />
-            <div><label className="label">Chart type</label>
-              <select className="input" name="type" defaultValue="SPC_XBAR_R">
-                <option value="SPC_XBAR_R">X̄-R (subgrouped)</option>
-                <option value="SPC_IMR">I-MR (individuals)</option>
-              </select></div>
-            <div><label className="label">Characteristic name</label>
-              <input className="input" name="name" required placeholder="e.g. Shaft diameter" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="label">Unit</label><input className="input" name="unit" placeholder="mm" /></div>
-              <div><label className="label">Subgroup size (X̄-R)</label><input className="input" name="subgroupSize" type="number" min={2} max={10} defaultValue={5} /></div>
-            </div>
+            <NewSpcStreamFields />
             <div className="grid grid-cols-2 gap-3">
               <div><label className="label">Spec low (LSL)</label><input className="input" name="specLow" type="number" step="any" /></div>
               <div><label className="label">Spec high (USL)</label><input className="input" name="specHigh" type="number" step="any" /></div>
             </div>
             <div><label className="label">Cpk alert threshold</label>
               <input className="input" name="cpkThreshold" type="number" step="0.01" defaultValue={d.cpkThreshold} />
-              <p className="text-xs text-steel mt-1">Default {d.cpkThreshold} for your industry. An alert is raised when capability drops below this.</p></div>
+              <p className="text-xs text-steel mt-1">Default {d.cpkThreshold} for your industry. An alert is raised when capability drops below this.</p>
+              <p className="text-xs text-steel mt-1">This alert tracks Cpk (short-term/within); Ppk (overall) is shown for reference but does not trigger an alert.</p></div>
             <Submit>Create stream</Submit>
           </ActionForm>
         </Card>

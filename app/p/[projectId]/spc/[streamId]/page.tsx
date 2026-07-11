@@ -2,6 +2,7 @@ import { Card, PageHeader, Badge } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
 import { addSpcPoint } from "@/app/actions";
 import ControlChart from "@/components/charts/ControlChart";
+import AlertsBanner from "@/components/AlertsBanner";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
 import { asc, eq } from "drizzle-orm";
@@ -30,15 +31,29 @@ export default async function SpcStream({ params }: { params: { projectId: strin
     : null;
   const sigmaPlot = lim ? (isXbar ? lim.sigmaWithin / Math.sqrt(stream.subgroupSize) : lim.sigmaWithin) : 0;
 
+  // Fix 3 — out of spec (customer tolerance) is a different condition from out
+  // of control (WE rule): a point is out of spec when any measurement in it
+  // falls outside LSL/USL. Display only — no rule or alert logic touched.
+  const hasSpecs = stream.specLow != null || stream.specHigh != null;
+  const outOfSpec = valuesPer.map(vs => hasSpecs && vs.some(v =>
+    (stream.specLow != null && v < stream.specLow) ||
+    (stream.specHigh != null && v > stream.specHigh)));
+
   const chartData = pts.map((p, i) => ({
     label: new Date(p.ts).toLocaleDateString(undefined, { month: "numeric", day: "numeric" }) + ` #${i + 1}`,
     value: means[i],
     flags: (((p.computed as any)?.flags ?? []) as { rule: string }[]).map(f => f.rule),
+    outOfSpec: outOfSpec[i],
   }));
   const flagged = pts
-    .map((p, i) => ({ p, i, flags: ((p.computed as any)?.flags ?? []) as { rule: string; message: string }[] }))
-    .filter(x => x.flags.length > 0)
+    .map((p, i) => ({
+      p, i,
+      flags: ((p.computed as any)?.flags ?? []) as { rule: string; message: string }[],
+      oos: outOfSpec[i],
+    }))
+    .filter(x => x.flags.length > 0 || x.oos)
     .reverse();
+  const anyOos = flagged.some(x => x.oos);
 
   return (
     <div>
@@ -47,6 +62,7 @@ export default async function SpcStream({ params }: { params: { projectId: strin
         title={stream.name}
         action={<Link className="btn btn-quiet" href={`/p/${project.id}/capability?stream=${stream.id}`}>Capability report</Link>}
       />
+      <AlertsBanner projectId={project.id} streamId={stream.id} scopeLabel="this stream" />
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           <Card title={isXbar ? "X̄ chart (subgroup means)" : "Individuals chart"}>
@@ -54,6 +70,14 @@ export default async function SpcStream({ params }: { params: { projectId: strin
               <>
                 <ControlChart data={chartData} center={lim.center} ucl={lim.ucl} lcl={lim.lcl}
                   sigma={sigmaPlot} unit={stream.unit} />
+                {hasSpecs && (
+                  <p className="text-xs mt-2">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full align-middle mr-1" style={{ background: "var(--alarm)" }} />
+                    <span className="text-steel mr-3">out of control — violates a control rule (Western Electric)</span>
+                    <span className="inline-block h-2.5 w-2.5 align-middle mr-1" style={{ background: "var(--alarm)" }} />
+                    <span className="text-steel">out of spec — outside customer tolerance (LSL/USL)</span>
+                  </p>
+                )}
                 <p className="text-xs text-steel mt-2">
                   Limits recompute from all logged data. Zones show ±1σ/±2σ/±3σ. Red points violated a
                   Western Electric rule at entry time. With fewer than ~20 subgroups, treat limits as preliminary.
@@ -64,16 +88,30 @@ export default async function SpcStream({ params }: { params: { projectId: strin
             )}
           </Card>
           {flagged.length > 0 && (
-            <Card title="Out-of-control history">
+            <Card title={anyOos ? "Out-of-control / out-of-spec history" : "Out-of-control history"}>
               <table className="data">
-                <thead><tr><th>When</th><th>Value</th><th>Rules violated</th></tr></thead>
+                <thead><tr><th>When</th><th>Value</th><th>Condition</th></tr></thead>
                 <tbody>
                   {flagged.map(x => (
                     <tr key={x.p.id}>
                       <td className="mono">{new Date(x.p.ts).toLocaleString()}</td>
                       <td className="mono">{means[x.i].toFixed(3)}{stream.unit ? ` ${stream.unit}` : ""}</td>
-                      <td>{x.flags.map(f => <Badge key={f.rule} tone="alarm">{f.rule}</Badge>).reduce((a: any[], el, i) => a.concat(i ? [" ", el] : [el]), [])}
-                        <div className="text-xs text-steel mt-1">{x.flags.map(f => f.message).join("; ")}</div></td>
+                      <td>
+                        <span className="flex flex-wrap gap-1 items-center">
+                          {x.flags.map(f => <Badge key={f.rule} tone="alarm">{f.rule}</Badge>)}
+                          {x.oos && (
+                            <span className="inline-block border border-red-200 bg-red-50 text-alarm rounded px-2 py-0.5 text-[11px] font-semibold">
+                              OUT OF SPEC
+                            </span>
+                          )}
+                        </span>
+                        <div className="text-xs text-steel mt-1">
+                          {[
+                            ...x.flags.map(f => f.message),
+                            ...(x.oos ? ["Measurement outside spec limits (LSL/USL)"] : []),
+                          ].join("; ")}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -107,6 +145,9 @@ export default async function SpcStream({ params }: { params: { projectId: strin
                 <div className="flex justify-between"><dt className="text-steel">σ (within)</dt><dd className="mono">{lim.sigmaWithin.toFixed(4)}</dd></div>
               </>}
             </dl>
+            <p className="text-xs text-steel mt-2">
+              This alert tracks Cpk (short-term/within); Ppk (overall) is shown on the capability report for reference but does not trigger an alert.
+            </p>
           </Card>
         </div>
       </div>

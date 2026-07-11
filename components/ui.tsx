@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import HelpTip from "@/components/HelpTip";
 
 export function PageHeader({ eyebrow, title, action }: { eyebrow: string; title: string; action?: ReactNode }) {
   return (
@@ -23,11 +24,11 @@ export function Card({ title, children, className = "" }: { title?: string; chil
   );
 }
 
-export function Stat({ label, value, tone }: { label: string; value: string; tone?: "ok" | "warn" | "alarm" }) {
+export function Stat({ label, value, tone, help }: { label: string; value: string; tone?: "ok" | "warn" | "alarm"; help?: string }) {
   const color = tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : tone === "alarm" ? "text-alarm" : "text-ink";
   return (
     <div className="card px-4 py-3">
-      <div className="eyebrow">{label}</div>
+      <div className="eyebrow">{label}{help && <HelpTip text={help} term={label} />}</div>
       <div className={`mono text-xl font-bold ${color}`}>{value}</div>
     </div>
   );
