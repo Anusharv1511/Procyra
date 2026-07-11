@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Procyra — industrial control-room palette.
+   ink/steel neutrals, lockout blue accent, semantic signal colors that mirror
+   control-chart states. Signature motif: sigma "zone bands". */
+:root {
+  --ink: #22262b;
+  --steel: #5a6472;
+  --paper: #f3f4f1;
+  --panel: #ffffff;
+  --line: #dfe2dc;
+  --accent: #2456a6;      /* lockout blue */
+  --ok: #2e7d4f;          /* in control */
+  --warn: #c98a1b;        /* caution */
+  --alarm: #c2453a;       /* out of control */
+  --zone-a: rgba(194, 69, 58, 0.07);
+  --zone-b: rgba(201, 138, 27, 0.07);
+  --zone-c: rgba(46, 125, 79, 0.06);
+}
+
+html { background: var(--paper); }
+body { color: var(--ink); font-family: -apple-system, "Segoe UI", "Helvetica Neue", Arial, system-ui, sans-serif; }
+
+.mono { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+.eyebrow {
+  font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--steel); font-weight: 600;
+}
+
+/* signature: sigma zone bands used under page titles */
+.zone-bands { display: flex; flex-direction: column; gap: 2px; width: 64px; }
+.zone-bands span { height: 3px; border-radius: 1px; }
+.zone-bands span:nth-child(1) { background: var(--alarm); opacity: .85; }
+.zone-bands span:nth-child(2) { background: var(--warn); opacity: .85; }
+.zone-bands span:nth-child(3) { background: var(--ok); opacity: .85; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.input {
+  width: 100%; border: 1px solid var(--line); border-radius: 8px;
+  padding: 0.5rem 0.75rem; background: #fff; font-size: 0.9rem;
+}
+.input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.label { display:block; font-size: 0.8rem; font-weight: 600; color: var(--steel); margin-bottom: 0.25rem; }
+.btn {
+  display: inline-flex; align-items: center; gap: .5rem; border-radius: 8px;
+  padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 600;
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .6; }
+.btn-quiet { background: #fff; color: var(--ink); border-color: var(--line); }
+.btn-quiet:hover { background: var(--paper); filter:none; }
+table.data { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+table.data th { text-align: left; font-size: 0.7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--steel); padding: .5rem .75rem; border-bottom: 1px solid var(--line); }
+table.data td { padding: .5rem .75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.data tr:last-child td { border-bottom: none; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
