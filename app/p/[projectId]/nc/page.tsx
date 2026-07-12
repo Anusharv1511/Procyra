@@ -34,6 +34,18 @@ export default async function NcPage({ params }: { params: { projectId: string }
 
   const sevTone = (s: string) => (s === "critical" ? ("alarm" as const) : s === "major" ? ("warn" as const) : ("quiet" as const));
 
+  // Part N — defect heatmap: quantity by process area × defect code, so the
+  // WHERE and the WHAT are visible in one glance (the Pareto only shows what).
+  const areas = [...new Set(ncs.map(n => n.processArea))].sort();
+  const heatCodes = sorted.slice(0, 8).map(([c]) => c); // top codes by qty
+  const heat = new Map<string, number>();
+  for (const n of ncs) {
+    if (!heatCodes.includes(n.defectCode)) continue;
+    const k = `${n.processArea}|${n.defectCode}`;
+    heat.set(k, (heat.get(k) ?? 0) + n.qty);
+  }
+  const heatMax = Math.max(1, ...heat.values());
+
   return (
     <div>
       <PageHeader eyebrow="Monitor & track" title={`${T.defects} & Pareto`}
@@ -55,6 +67,33 @@ export default async function NcPage({ params }: { params: { projectId: string }
               </>
             ) : <p className="text-sm text-steel">Log your first {T.defect.toLowerCase()} to build the Pareto.</p>}
           </Card>
+          {areas.length > 1 && heatCodes.length > 1 && (
+            <Card title={`Heatmap — where ${T.defects.toLowerCase()} occur (qty by area × code)`}>
+              <div className="overflow-x-auto">
+                <table className="data">
+                  <thead><tr><th>Area</th>{heatCodes.map(c => <th key={c} className="mono">{c}</th>)}</tr></thead>
+                  <tbody>
+                    {areas.map(a => (
+                      <tr key={a}>
+                        <td className="font-medium">{a}</td>
+                        {heatCodes.map(c => {
+                          const v = heat.get(`${a}|${c}`) ?? 0;
+                          const alpha = v ? 0.12 + 0.55 * (v / heatMax) : 0;
+                          return (
+                            <td key={c} className="mono text-center"
+                              style={v ? { background: `rgba(179, 38, 30, ${alpha.toFixed(2)})`, color: alpha > 0.42 ? "#fff" : undefined, fontWeight: 600 } : undefined}>
+                              {v || "·"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-steel mt-2">Darker = more quantity. A dark cell is a specific problem in a specific place — usually the fastest possible starting point for containment. Top {heatCodes.length} codes shown.</p>
+            </Card>
+          )}
           <Card title="Log">
             <table className="data">
               <thead><tr><th>Date</th><th>Code</th><th>Area</th><th>Qty</th><th>Severity</th><th>Notes</th></tr></thead>
