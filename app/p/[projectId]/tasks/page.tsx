@@ -1,10 +1,11 @@
-import { Card, PageHeader, Badge } from "@/components/ui";
+import { Card, PageHeader, Badge, EmptyState } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
 import { createTask, completeTask } from "@/app/actions";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
 import { asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,9 @@ export default async function Tasks({ params }: { params: { projectId: string } 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           {tasks.length === 0 && (
-            <Card><p className="text-sm text-steel">Nothing scheduled. Weekly audits, monthly Gage R&R, control-chart reviews — put them here and they surface on the dashboard when due.</p></Card>
+            <EmptyState title="Nothing scheduled yet"
+              body="Weekly audits, monthly Gage R&R, control-chart reviews — put them here and they surface on the dashboard when due."
+              cta={<Link className="btn" href="#new-task">Schedule a task</Link>} />
           )}
           {tasks.map(x => {
             const overdue = new Date(x.nextDue).getTime() < Date.now();
@@ -50,7 +53,7 @@ export default async function Tasks({ params }: { params: { projectId: string } 
             );
           })}
         </div>
-        <Card title="Schedule a recurring task">
+        <Card title="Schedule a recurring task" id="new-task">
           <ActionForm action={createTask} className="space-y-3">
             <input type="hidden" name="projectId" value={project.id} />
             <div><label className="label">Title</label><input className="input" name="title" required placeholder="e.g. Weekly layered process audit" /></div>

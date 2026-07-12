@@ -15,9 +15,9 @@ export function PageHeader({ eyebrow, title, action }: { eyebrow: string; title:
   );
 }
 
-export function Card({ title, children, className = "" }: { title?: string; children: ReactNode; className?: string }) {
+export function Card({ title, children, className = "", id }: { title?: string; children: ReactNode; className?: string; id?: string }) {
   return (
-    <div className={`card p-4 ${className}`}>
+    <div id={id} className={`card p-4 ${className}`}>
       {title && <h2 className="text-sm font-semibold mb-3 text-steel uppercase tracking-wide">{title}</h2>}
       {children}
     </div>
@@ -51,6 +51,37 @@ export function EmptyState({ title, body, cta }: { title: string; body: string; 
       <p className="font-semibold">{title}</p>
       <p className="text-sm text-steel mt-1 max-w-md mx-auto">{body}</p>
       {cta && <div className="mt-4">{cta}</div>}
+    </div>
+  );
+}
+
+export function ChecklistCard({ title, items }: {
+  title: string;
+  items: { label: string; href: string; done: boolean }[];
+}) {
+  return (
+    <div className="card p-4">
+      <h2 className="text-sm font-semibold mb-3 text-steel uppercase tracking-wide">{title}</h2>
+      <ul className="space-y-2">
+        {items.map(item => (
+          <li key={item.label}>
+            <Link
+              href={item.href}
+              className={`flex items-center gap-2.5 rounded px-2 py-1.5 -mx-2 hover:bg-paper ${item.done ? "text-steel" : "text-ink"}`}
+            >
+              <span
+                aria-hidden
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
+                  item.done ? "border-ok bg-ok text-white" : "border-line bg-white"
+                }`}
+              >
+                {item.done ? "✓" : ""}
+              </span>
+              <span className={`text-sm font-medium ${item.done ? "line-through decoration-steel/50" : ""}`}>{item.label}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

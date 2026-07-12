@@ -1,4 +1,5 @@
 import AppShell from "@/components/AppShell";
+import ProjectNav from "@/components/ProjectNav";
 import { getSessionUser } from "@/lib/auth";
 import { getProject } from "@/lib/data";
 import { terms } from "@/lib/terminology";
@@ -66,32 +67,13 @@ export default async function ProjectLayout({ children, params }: {
   ];
 
   return (
-    <AppShell userName={user.name}>
+    <AppShell userName={user.name} projectName={project.name} projectHref={base}>
       <div className="mb-4">
         <div className="eyebrow">{project.workspace.name} · {project.workspace.industry.replace("_", " ")}</div>
         <Link href={base} className="text-lg font-bold hover:underline">{project.name}</Link>
       </div>
       <div className="grid md:grid-cols-[220px,1fr] gap-6">
-        <nav className="space-y-4 text-sm md:sticky md:top-20 self-start">
-          {nav.map(g => (
-            <div key={g.section}>
-              <div className="eyebrow mb-1">{g.section}</div>
-              <ul className="space-y-0.5">
-                {g.items.map(item => (
-                  <li key={item.label}>
-                    {item.href ? (
-                      <Link href={item.href} className="block rounded px-2 py-1 hover:bg-white hover:shadow-sm">{item.label}</Link>
-                    ) : (
-                      <span className="block rounded px-2 py-1 text-steel cursor-default" title={`Planned for ${item.soon} — not yet functional`}>
-                        {item.label} <span className="text-[10px] uppercase tracking-wide">· {item.soon}</span>
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
+        <ProjectNav groups={nav} />
         <div className="min-w-0">{children}</div>
       </div>
     </AppShell>

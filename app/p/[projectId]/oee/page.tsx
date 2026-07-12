@@ -27,7 +27,8 @@ export default async function OeeList({ params }: { params: { projectId: string 
         <div className="lg:col-span-2 space-y-3">
           {streams.length === 0 ? (
             <EmptyState title="No OEE logs yet"
-              body={`Create one log per ${T.line.toLowerCase()} or asset. Log a daily entry (planned time, run time, ideal cycle time, total and good ${T.units.toLowerCase()}) — availability, performance, quality and OEE compute automatically, and a run below target raises an alert.`} />
+              body={`Create one log per ${T.line.toLowerCase()} or asset. Log a daily entry (planned time, run time, ideal cycle time, total and good ${T.units.toLowerCase()}) — availability, performance, quality and OEE compute automatically, and a run below target raises an alert.`}
+              cta={<Link className="btn" href="#new-oee-log">Create OEE log</Link>} />
           ) : streams.map(s => (
             <Link key={s.id} href={`/p/${project.id}/oee/${s.id}`} className="card px-4 py-3 flex justify-between items-center hover:shadow-sm">
               <span className="font-semibold text-sm">{s.name}</span>
@@ -35,7 +36,7 @@ export default async function OeeList({ params }: { params: { projectId: string 
             </Link>
           ))}
         </div>
-        <Card title={`New OEE log (${T.line.toLowerCase()} / asset)`}>
+        <Card title={`New OEE log (${T.line.toLowerCase()} / asset)`} id="new-oee-log">
           <ActionForm action={createStream} className="space-y-3">
             <input type="hidden" name="projectId" value={project.id} />
             <input type="hidden" name="type" value="OEE" />

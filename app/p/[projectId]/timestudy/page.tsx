@@ -21,7 +21,8 @@ export default async function TimeStudyList({ params }: { params: { projectId: s
         <div className="lg:col-span-2 space-y-3">
           {studies.length === 0 ? (
             <EmptyState title="No time studies yet"
-              body="Break the job into elements, record observed times and a performance rating per element — normal time, PFD-allowed standard time, and a learning-curve projection compute automatically." />
+              body="Break the job into elements, record observed times and a performance rating per element — normal time, PFD-allowed standard time, and a learning-curve projection compute automatically."
+              cta={<Link className="btn" href="#new-time-study">Create time study</Link>} />
           ) : studies.map(s => (
             <Link key={s.id} href={`/p/${project.id}/timestudy/${s.id}`} className="card px-4 py-3 flex justify-between items-center hover:shadow-sm">
               <span className="font-semibold text-sm">{s.name}</span>
@@ -29,7 +30,7 @@ export default async function TimeStudyList({ params }: { params: { projectId: s
             </Link>
           ))}
         </div>
-        <Card title="New time study">
+        <Card title="New time study" id="new-time-study">
           <ActionForm action={createTimeStudy} className="space-y-3">
             <input type="hidden" name="projectId" value={project.id} />
             <div><label className="label">Job / operation name</label><input className="input" name="name" required /></div>
