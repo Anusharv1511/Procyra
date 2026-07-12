@@ -132,7 +132,7 @@ export default async function PlaybookRun({ params }: { params: { projectId: str
               <GuidedStep
                 projectId={project.id}
                 runId={run.id}
-                step={step}
+                step={{ ...step, moduleHint: undefined }}
                 stepKey={step.key}
                 intake={GUIDED_INTAKE[run.playbookKey]?.[step.key] ?? []}
                 isLast={run.stepIndex + 1 === pb.steps.length}
