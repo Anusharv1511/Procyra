@@ -2,6 +2,8 @@ import { Card, PageHeader, Badge } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
 import { addNc } from "@/app/actions";
 import ParetoChart from "@/components/charts/ParetoChart";
+import DownloadCsvButton from "@/components/DownloadCsvButton";
+import ImportNcCsv from "@/components/ImportNcCsv";
 import { getProject } from "@/lib/data";
 import { terms, defaults } from "@/lib/terminology";
 import { db, t } from "@/db";
@@ -34,7 +36,15 @@ export default async function NcPage({ params }: { params: { projectId: string }
 
   return (
     <div>
-      <PageHeader eyebrow="Monitor & track" title={`${T.defects} & Pareto`} />
+      <PageHeader eyebrow="Monitor & track" title={`${T.defects} & Pareto`}
+        action={
+          /* Part B2 — full log (not just the 50 displayed), same visible columns */
+          <DownloadCsvButton
+            filename="defect-log.csv"
+            headers={["date", "code", "area", "qty", "severity", "description"]}
+            rows={ncs.map(n => [new Date(n.date).toISOString().slice(0, 10), n.defectCode, n.processArea, n.qty, n.severity, n.description])}
+          />
+        } />
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           <Card title={`Pareto of ${T.defects.toLowerCase()} (by quantity)`}>
@@ -62,6 +72,11 @@ export default async function NcPage({ params }: { params: { projectId: string }
                 {!ncs.length && <tr><td colSpan={6} className="text-steel">Nothing logged yet.</td></tr>}
               </tbody>
             </table>
+            {ncs.length > 50 && (
+              <p className="text-xs text-steel mt-2">
+                Showing the 50 most recent of {ncs.length} entries — the Pareto above and the CSV download include all of them.
+              </p>
+            )}
           </Card>
         </div>
         <Card title={`Log a ${T.defect.toLowerCase()}`}>
@@ -85,6 +100,11 @@ export default async function NcPage({ params }: { params: { projectId: string }
               Automation: the same code + area {d.ncRepeatThreshold}× within {d.ncRepeatWindowDays} days auto-drafts a CAPA for your review.
             </p>
           </ActionForm>
+          {/* Part B3 — bulk import; each row goes through the same addNc logic,
+              so recurrence detection and auto-CAPA drafting fire as usual */}
+          <div className="border-t border-line pt-3 mt-4">
+            <ImportNcCsv projectId={project.id} />
+          </div>
         </Card>
       </div>
     </div>

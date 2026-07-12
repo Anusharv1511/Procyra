@@ -1,6 +1,7 @@
 import { Card, PageHeader, Stat, EmptyState } from "@/components/ui";
 import Histogram from "@/components/charts/Histogram";
 import AlertsBanner from "@/components/AlertsBanner";
+import PrintButton from "@/components/PrintButton";
 import { GLOSSARY } from "@/lib/glossary";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
@@ -89,7 +90,8 @@ export default async function Capability({ params, searchParams }: {
 
   return (
     <div>
-      <PageHeader eyebrow="Measure & analyze" title="Process capability" />
+      <PageHeader eyebrow="Measure & analyze" title="Process capability"
+        action={selected ? <PrintButton /> : undefined} />
       <AlertsBanner projectId={project.id} sourceTypes={["CAPABILITY"]} scopeLabel="this project's capability checks" inboxCategory="CAPABILITY" />
       {streams.length > 0 && (
         <div className="mb-4 flex gap-2 flex-wrap">
