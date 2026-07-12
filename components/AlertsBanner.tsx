@@ -34,7 +34,7 @@ export default async function AlertsBanner({
     : "border-amber-200 bg-amber-50 text-warn";
 
   return (
-    <div className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2 text-sm font-semibold ${tone}`}>
+    <div className={`no-print mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2 text-sm font-semibold ${tone}`}>
       <span>
         {rows.length} open alert{rows.length === 1 ? "" : "s"} for {scopeLabel}
         {critical ? ` — ${critical} critical` : ""}
