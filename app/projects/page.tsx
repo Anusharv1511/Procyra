@@ -1,7 +1,7 @@
 import AppShell from "@/components/AppShell";
 import { Card, PageHeader, EmptyState } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
-import { createProject } from "@/app/actions";
+import { createProject, seedDemoProject } from "@/app/actions";
 import ProjectRowActions from "@/components/ProjectRowActions";
 import { getSessionUser } from "@/lib/auth";
 import { myProjects, myWorkspaces } from "@/lib/data";
@@ -36,6 +36,22 @@ export default async function Projects({ searchParams }: { searchParams: { archi
         <input className="input" id="pdesc" name="description" /></div>
       <Submit>{isBrandNew ? "Create your first project" : "Create project"}</Submit>
     </ActionForm>
+  );
+
+  // Part A1 — seeds a brand-new demo project (never touches existing ones)
+  // with a full DMAIC scenario generated through the app's real rules engine.
+  const loadExampleForm = (
+    <div className="border-t border-line pt-3 mt-4">
+      <ActionForm action={seedDemoProject}>
+        <Submit quiet>Load example project</Submit>
+      </ActionForm>
+      <p className="text-xs text-steel mt-2">
+        Creates a new “Demo: Flange Machining” project with a completed DMAIC playbook,
+        live SPC data (with real out-of-control points), capability, an auto-drafted CAPA,
+        an FMEA and an OEE log — so you can explore a working example without entering data.
+        Takes a few seconds.
+      </p>
+    </div>
   );
 
   // Fix 10 — open-alert count per project: same definition the dashboard's
@@ -73,6 +89,7 @@ export default async function Projects({ searchParams }: { searchParams: { archi
             </p>
             <div className="mt-6 max-w-sm mx-auto text-left" id="new-project">
               {newProjectForm}
+              {loadExampleForm}
             </div>
           </Card>
         </div>
@@ -140,6 +157,7 @@ export default async function Projects({ searchParams }: { searchParams: { archi
         </div>
         <Card title="New project" id="new-project">
           {newProjectForm}
+          {loadExampleForm}
           <p className="text-xs text-steel mt-3">Need a different industry or terminology? Workspaces are created on the setup page.</p>
           <Link href="/setup" className="btn btn-quiet mt-2">Manage workspaces →</Link>
         </Card>

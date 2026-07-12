@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth";
 import { runSpcRules, runOeeRules, runNcRules, runFmeaRules } from "@/lib/rules";
 import { PLAYBOOKS } from "@/lib/playbooks";
+import { seedDemoProjectData } from "@/lib/demo-seed";
+import { randomBytes } from "crypto";
 
 // ---------- helpers ----------
 const s = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
@@ -106,6 +108,59 @@ export async function setProjectArchived(_prev: any, fd: FormData) {
   return { ok: true, message: archived ? "Project archived — restore it any time from “Show archived”." : "Project restored." };
 }
 
+/**
+ * Part A1 — "Load example project": creates a brand-new demo project seeded
+ * with a full DMAIC scenario. All data is generated through the same rules
+ * engine real usage triggers (see lib/demo-seed.ts); nothing existing is touched.
+ */
+export async function seedDemoProject(_prev: any, _fd: FormData) {
+  const uid = await getSessionUserId();
+  if (!uid) redirect("/login");
+  let projectId: string;
+  try {
+    // The real actions are injected so the seed reuses their exact code paths
+    // without a circular import between actions.ts and lib/demo-seed.ts.
+    ({ projectId } = await seedDemoProjectData(uid!, {
+      advancePlaybook, upsertFmeaItem, setAlertStatus,
+    }));
+  } catch (e) {
+    console.error("seedDemoProject failed", e);
+    return { error: "Couldn't create the example project. Please try again." };
+  }
+  revalidatePath("/projects");
+  revalidatePath("/dashboard");
+  redirect(`/p/${projectId}`);
+}
+
+/**
+ * Part A2 — public read-only share link. Generates a cryptographically random
+ * token (192 bits, URL-safe) if none exists; a second click keeps the existing
+ * one so the URL stays stable until explicitly revoked.
+ */
+export async function generateShareLink(_prev: any, fd: FormData) {
+  const projectId = s(fd, "projectId");
+  await requireProjectAccess(projectId);
+  const [p] = await db.select({ shareToken: t.projects.shareToken })
+    .from(t.projects).where(eq(t.projects.id, projectId));
+  if (!p) return { error: "Project not found." };
+  if (!p.shareToken) {
+    await db.update(t.projects)
+      .set({ shareToken: randomBytes(24).toString("base64url") })
+      .where(eq(t.projects.id, projectId));
+  }
+  revalidatePath(`/p/${projectId}`);
+  return { ok: true, message: "Share link is active — anyone with the URL can view (not edit) this project." };
+}
+
+/** Part A2 — clears the token; the old /share URL immediately 404s. */
+export async function revokeShareLink(_prev: any, fd: FormData) {
+  const projectId = s(fd, "projectId");
+  await requireProjectAccess(projectId);
+  await db.update(t.projects).set({ shareToken: null }).where(eq(t.projects.id, projectId));
+  revalidatePath(`/p/${projectId}`);
+  return { ok: true, message: "Link revoked. Generating a new one later creates a different URL." };
+}
+
 // ---------- streams & data points ----------
 export async function createStream(_prev: any, fd: FormData) {
   const projectId = s(fd, "projectId");
@@ -136,7 +191,15 @@ export async function addSpcPoint(_prev: any, fd: FormData) {
   const need = stream.type === "SPC_XBAR_R" ? stream.subgroupSize : 1;
   if (values.length !== need)
     return { error: `This stream expects exactly ${need} measurement${need > 1 ? "s" : ""} per entry.` };
-  const [pt] = await db.insert(t.dataPoints).values({ streamId, payload: { values } }).returning();
+  // Part B3 (additive) — CSV import passes the row's own timestamp so imported
+  // history lands on the right dates. The manual form never sends "ts", so
+  // interactive behavior is unchanged (defaults to now, as before).
+  const tsRaw = s(fd, "ts");
+  const ts = tsRaw ? new Date(tsRaw) : null;
+  if (tsRaw && isNaN(+ts!)) return { error: "Timestamp is not a valid date." };
+  const [pt] = await db.insert(t.dataPoints).values({
+    streamId, payload: { values }, ...(ts ? { ts } : {}),
+  }).returning();
   const flags = await runSpcRules(streamId, pt.id); // rules run automatically on entry
   revalidatePath(`/p/${projectId}/spc/${streamId}`);
   return {
@@ -172,10 +235,17 @@ export async function addNc(_prev: any, fd: FormData) {
   const defectCode = s(fd, "defectCode"), processArea = s(fd, "processArea");
   const qty = num(fd, "qty") ?? 1;
   if (!defectCode || !processArea) return { error: "Code and process area are required." };
+  // Part B3 (additive) — CSV import passes the row's own date so the 30-day
+  // recurrence window evaluates real dates. The manual form never sends "date",
+  // so interactive behavior is unchanged (defaults to now, as before).
+  const dateRaw = s(fd, "date");
+  const date = dateRaw ? new Date(dateRaw) : null;
+  if (dateRaw && isNaN(+date!)) return { error: "Date is not a valid date." };
   const [nc] = await db.insert(t.nonConformances).values({
     projectId, defectCode, processArea, qty: Math.max(1, Math.round(qty)),
     severity: s(fd, "severity") || "minor",
     description: s(fd, "description") || null,
+    ...(date ? { date } : {}),
   }).returning();
   const industry = await industryOf(projectId);
   const res = await runNcRules(projectId, nc.id, industry); // auto-draft CAPA on repeat

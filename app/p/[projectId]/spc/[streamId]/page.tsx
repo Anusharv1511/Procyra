@@ -3,6 +3,9 @@ import { ActionForm, Submit } from "@/components/forms";
 import { addSpcPoint } from "@/app/actions";
 import ControlChart from "@/components/charts/ControlChart";
 import AlertsBanner from "@/components/AlertsBanner";
+import PrintButton from "@/components/PrintButton";
+import DownloadCsvButton from "@/components/DownloadCsvButton";
+import ImportSpcCsv from "@/components/ImportSpcCsv";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
 import { asc, eq } from "drizzle-orm";
@@ -60,10 +63,26 @@ export default async function SpcStream({ params }: { params: { projectId: strin
       <PageHeader
         eyebrow={`SPC · ${isXbar ? `X̄-R, subgroup n=${stream.subgroupSize}` : "I-MR"}`}
         title={stream.name}
-        action={<Link className="btn btn-quiet" href={`/p/${project.id}/capability?stream=${stream.id}`}>Capability report</Link>}
+        action={
+          <div className="flex gap-2 flex-wrap">
+            {/* Part B2 — raw logged data points, same rows as the chart/table below */}
+            <DownloadCsvButton
+              filename={`spc-${stream.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.csv`}
+              headers={isXbar ? ["timestamp", "values", "mean", "range", "flags"] : ["timestamp", "value", "flags"]}
+              rows={pts.map((p, i) => {
+                const flags = (((p.computed as any)?.flags ?? []) as { rule: string }[]).map(f => f.rule).join(" ");
+                return isXbar
+                  ? [new Date(p.ts).toISOString(), valuesPer[i].join(" "), means[i], ranges[i], flags]
+                  : [new Date(p.ts).toISOString(), means[i], flags];
+              })}
+            />
+            <PrintButton />
+            <Link className="btn btn-quiet no-print" href={`/p/${project.id}/capability?stream=${stream.id}`}>Capability report</Link>
+          </div>
+        }
       />
       <AlertsBanner projectId={project.id} streamId={stream.id} scopeLabel="this stream" />
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid lg:grid-cols-3 gap-4 print-stack">
         <div className="lg:col-span-2 space-y-4">
           <Card title={isXbar ? "X̄ chart (subgroup means)" : "Individuals chart"}>
             {enough && lim ? (
@@ -120,7 +139,7 @@ export default async function SpcStream({ params }: { params: { projectId: strin
           )}
         </div>
         <div className="space-y-4">
-          <Card title="Log a measurement">
+          <Card title="Log a measurement" className="no-print">
             <ActionForm action={addSpcPoint} className="space-y-3">
               <input type="hidden" name="projectId" value={project.id} />
               <input type="hidden" name="streamId" value={stream.id} />
@@ -134,6 +153,11 @@ export default async function SpcStream({ params }: { params: { projectId: strin
               <Submit>Log entry</Submit>
               <p className="text-xs text-steel">Western Electric rules 1–4 run the moment you log. Violations flag the point and raise an alert — no manual re-check.</p>
             </ActionForm>
+            {/* Part B3 — bulk import; each row goes through the same addSpcPoint logic */}
+            <div className="border-t border-line pt-3 mt-4">
+              <ImportSpcCsv projectId={project.id} streamId={stream.id}
+                subgroupSize={isXbar ? stream.subgroupSize : 1} />
+            </div>
           </Card>
           <Card title="Stream settings">
             <dl className="text-sm space-y-1">

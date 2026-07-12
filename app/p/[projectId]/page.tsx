@@ -1,4 +1,5 @@
 import AlertList from "@/components/AlertList";
+import ShareLinkCard from "@/components/ShareLinkCard";
 import { Card, PageHeader, Stat, ChecklistCard } from "@/components/ui";
 import { getProject, openAlerts } from "@/lib/data";
 import { db, t } from "@/db";
@@ -57,6 +58,12 @@ export default async function ProjectOverview({ params, searchParams }: {
       <div id="alert-inbox">
         <Card title="Alert inbox">
           <AlertList alerts={alerts as any} initialCategory={searchParams.cat} />
+        </Card>
+      </div>
+      {/* Part A2 — public read-only share link for this project */}
+      <div className="mt-6 no-print">
+        <Card title="Share (read-only)">
+          <ShareLinkCard projectId={project.id} shareToken={project.shareToken} />
         </Card>
       </div>
       {!showChecklist && (

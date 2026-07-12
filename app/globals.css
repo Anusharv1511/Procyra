@@ -60,3 +60,21 @@ table.data tr:last-child td { border-bottom: none; }
 /* Fix 5 — highlight the existing FMEA row when jumped to via "View existing row" */
 table.data tr:target td { background: rgba(201, 138, 27, 0.14); }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Part B1 — print / save-as-PDF styles. Hides chrome (nav, forms, buttons),
+   keeps report content readable on paper: white background, visible table
+   borders, no rows split across pages. `.no-print` marks anything else that
+   shouldn't print; `.print-stack` collapses screen grids to a single column
+   so report content uses the full page width once sidebars are hidden. */
+@media print {
+  header, nav, form, .no-print, .btn, details { display: none !important; }
+  html, body { background: #fff !important; }
+  main, .print-stack > * { width: 100% !important; }
+  .print-stack { display: block !important; }
+  .print-stack > * + * { margin-top: 0.75rem; }
+  .card { border: 1px solid #999; box-shadow: none; break-inside: avoid; }
+  table.data th, table.data td { border-bottom: 1px solid #bbb; }
+  table.data tr { break-inside: avoid; }
+  .recharts-responsive-container, .recharts-wrapper, .recharts-wrapper svg { max-width: 100% !important; }
+  a { color: inherit; text-decoration: none; }
+}

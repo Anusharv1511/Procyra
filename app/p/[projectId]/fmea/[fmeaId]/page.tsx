@@ -1,6 +1,8 @@
 import { Card, PageHeader, Badge } from "@/components/ui";
 import FmeaItemForm from "@/components/FmeaItemForm";
 import AlertsBanner from "@/components/AlertsBanner";
+import PrintButton from "@/components/PrintButton";
+import DownloadCsvButton from "@/components/DownloadCsvButton";
 import HelpTip from "@/components/HelpTip";
 import { GLOSSARY } from "@/lib/glossary";
 import { getProject } from "@/lib/data";
@@ -34,9 +36,20 @@ export default async function FmeaDetail({ params }: { params: { projectId: stri
 
   return (
     <div>
-      <PageHeader eyebrow={`Risk & compliance · ${fmea.type}`} title={fmea.name} />
+      <PageHeader eyebrow={`Risk & compliance · ${fmea.type}`} title={fmea.name}
+        action={
+          <div className="flex gap-2 flex-wrap">
+            {/* Part B2 — same columns as the visible register table */}
+            <DownloadCsvButton
+              filename={`fmea-${fmea.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.csv`}
+              headers={["process_step", "failure_mode", "effect", "cause", "severity", "occurrence", "detection", "rpn", "recommended_action", "action_status", "linked_defect_code"]}
+              rows={items.map(it => [it.processStep, it.failureMode, it.effect, it.cause, it.severity, it.occurrence, it.detection, it.rpn, it.recommendedAction, it.actionStatus, it.linkedDefectCode])}
+            />
+            <PrintButton />
+          </div>
+        } />
       <AlertsBanner projectId={project.id} sourceTypes={["FMEA"]} scopeLabel="this project's FMEAs" inboxCategory="FMEA" />
-      <div className="grid xl:grid-cols-3 gap-4">
+      <div className="grid xl:grid-cols-3 gap-4 print-stack">
         <div className="xl:col-span-2">
           <Card title={`Register — sorted by RPN, action threshold ${fmea.rpnAction}`}>
             <div className="overflow-x-auto">
@@ -72,7 +85,7 @@ export default async function FmeaDetail({ params }: { params: { projectId: stri
             <p className="text-xs text-steel mt-2">RPN = S × O × D, recomputed server-side on every save; rows re-sort automatically. Items at or above {fmea.rpnAction} are highlighted and raise an alert. Link a defect code for traceability — Occurrence (O) does not update automatically; revisit it manually as real defect data comes in.</p>
           </Card>
         </div>
-        <Card title="Add failure mode">
+        <Card title="Add failure mode" className="no-print">
           <FmeaItemForm projectId={project.id} fmeaId={fmea.id} />
         </Card>
       </div>

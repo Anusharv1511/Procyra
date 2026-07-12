@@ -72,7 +72,7 @@ export default async function ProjectLayout({ children, params }: {
         <div className="eyebrow">{project.workspace.name} · {project.workspace.industry.replace("_", " ")}</div>
         <Link href={base} className="text-lg font-bold hover:underline">{project.name}</Link>
       </div>
-      <div className="grid md:grid-cols-[220px,1fr] gap-6">
+      <div className="grid md:grid-cols-[220px,1fr] gap-6 print-stack">
         <ProjectNav groups={nav} />
         <div className="min-w-0">{children}</div>
       </div>
