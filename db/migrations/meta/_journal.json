@@ -15,6 +15,13 @@
       "when": 1783719302522,
       "tag": "0001_project_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783719302523,
+      "tag": "0002_share_token",
+      "breakpoints": true
     }
   ]
 }
