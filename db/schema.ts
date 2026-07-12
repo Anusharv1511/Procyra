@@ -196,6 +196,141 @@ export const playbookRuns = pgTable("playbook_runs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ---- Phase 2/3 modules (ADDITIVE — migration 0003) --------------------------
+// Child rows that are always read/written as a unit (stations, DOE runs,
+// changeover steps, CPM tasks, audit responses, the Gage R&R measurement grid)
+// live in jsonb on their parent, mirroring how dataPoints.payload and
+// timeStudyElements.observations already work in this codebase.
+
+// Part A — Gage R&R / MSA. data = measurements[operator][part][trial] (nulls until entered).
+export const gageStudies = pgTable("gage_studies", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  parts: integer("parts").notNull().default(10),
+  operators: integer("operators").notNull().default(3),
+  trials: integer("trials").notNull().default(3),
+  tolerance: doublePrecision("tolerance"), // USL - LSL; %Tolerance shown only when present
+  data: jsonb("data").notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part B — Line balancing. stations = [{ name, cycleTime }] (same time unit as availableTime).
+export const lineBalances = pgTable("line_balances", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  availableTime: doublePrecision("available_time").notNull(), // minutes per period
+  requiredOutput: doublePrecision("required_output").notNull(), // units per period
+  stations: jsonb("stations").notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part C — DOE. factors = [{ name, low, high }]; runs = [{ levels: (-1|1)[], response: number|null }].
+export const doeStudies = pgTable("doe_studies", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  designType: text("design_type").notNull().default("full"), // full | half (2^(k-1), k=4 only)
+  responseName: text("response_name").notNull().default("Response"),
+  factors: jsonb("factors").notNull().default([]),
+  runs: jsonb("runs").notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part E — SMED / changeover. steps = [{ description, duration, kind: "internal"|"external" }].
+export const changeovers = pgTable("changeovers", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  line: text("line").notNull(),
+  date: timestamp("date", { withTimezone: true }).defaultNow().notNull(),
+  steps: jsonb("steps").notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part F — Acceptance sampling (ANSI/ASQ Z1.4-style, single, normal, level II).
+export const samplingPlans = pgTable("sampling_plans", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  lotSize: integer("lot_size").notNull(),
+  aql: doublePrecision("aql").notNull(),
+  sampleSize: integer("sample_size").notNull(),
+  acceptNum: integer("accept_num").notNull(),
+  defectsFound: integer("defects_found"), // null until inspection is recorded
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part G — Control plan register (one row per controlled characteristic).
+export const controlPlanItems = pgTable("control_plan_items", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  characteristic: text("characteristic").notNull(),
+  specification: text("specification"),
+  controlMethod: text("control_method").notNull(),
+  frequency: text("frequency").notNull(),
+  reactionPlan: text("reaction_plan"),
+  linkedStreamId: text("linked_stream_id").references(() => streams.id, { onDelete: "set null" }),
+  linkedFmeaItemId: text("linked_fmea_item_id").references(() => fmeaItems.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part H — 8D problem solving. disciplines = { d1..d8: string }.
+export const eightDs = pgTable("eight_ds", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  status: text("status").notNull().default("open"), // open | closed
+  currentStep: integer("current_step").notNull().default(1), // 1..8
+  disciplines: jsonb("disciplines").notNull().default({}),
+  linkedCapaId: text("linked_capa_id").references(() => capas.id, { onDelete: "set null" }),
+  linkedDefectCode: text("linked_defect_code"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part I — Audit checklist runs. responses = { [questionId]: { result: "pass"|"fail"|"na", note } }.
+export const auditRuns = pgTable("audit_runs", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  standard: text("standard").notNull().default("IATF 16949"),
+  responses: jsonb("responses").notNull().default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part J — Capacity & bottlenecks. steps = [{ name, cycleTime, availableTime }].
+export const capacityStudies = pgTable("capacity_studies", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  steps: jsonb("steps").notNull().default([]),
+  sourceLineBalanceId: text("source_line_balance_id").references(() => lineBalances.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part K — Inventory (EOQ / ABC).
+export const skus = pgTable("skus", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  annualDemand: doublePrecision("annual_demand").notNull(),
+  orderCost: doublePrecision("order_cost").notNull(),
+  holdingCost: doublePrecision("holding_cost").notNull(), // per unit per year
+  unitCost: doublePrecision("unit_cost").notNull().default(0), // for ABC dollar volume
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Part L — Gantt / CPM. tasks = [{ key, name, duration, preds: string[] }].
+export const cpmPlans = pgTable("cpm_plans", {
+  id: id(),
+  projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tasks: jsonb("tasks").notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Human-in-the-loop decision log: the app suggests, people decide, both are recorded.
 export const decisions = pgTable("decisions", {
   id: id(),
