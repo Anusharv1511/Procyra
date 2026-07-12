@@ -39,6 +39,10 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   // Soft-delete: archived projects are hidden from default lists, never destroyed.
   archivedAt: timestamp("archived_at", { withTimezone: true }),
+  // Public read-only share link: /share/[shareToken]. Null = no active link.
+  // Cryptographically random (crypto.randomBytes), unique so a token resolves
+  // to at most one project; revoking sets it back to null (the old URL 404s).
+  shareToken: text("share_token").unique(),
 });
 
 // ---- Platform layer: Data Streams ------------------------------------------
