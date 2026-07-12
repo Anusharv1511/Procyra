@@ -37,6 +37,8 @@ export const projects = pgTable("projects", {
   description: text("description"),
   workspaceId: text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  // Soft-delete: archived projects are hidden from default lists, never destroyed.
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 // ---- Platform layer: Data Streams ------------------------------------------

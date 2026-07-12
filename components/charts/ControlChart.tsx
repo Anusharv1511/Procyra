@@ -1,19 +1,32 @@
 "use client";
 
 // Control chart with sigma zone bands (the app's signature motif made literal),
-// center/UCL/LCL lines, and out-of-control points rendered as filled red dots.
+// center/UCL/LCL lines, and two distinct alarm markers (Fix 3):
+//  - out of CONTROL (violates a Western Electric rule): filled red circle
+//  - out of SPEC (a measurement outside LSL/USL): filled red square
+// A point that is both renders as the square (spec breach is the customer-facing
+// condition); the tooltip lists both.
 
 import {
   ComposedChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ReferenceArea,
   ResponsiveContainer,
 } from "recharts";
 
-export type ChartPoint = { label: string; value: number; flags: string[] };
+export type ChartPoint = { label: string; value: number; flags: string[]; outOfSpec?: boolean };
 
 function Dot(props: any) {
   const { cx, cy, payload } = props;
   if (cx == null || cy == null) return null;
   const flagged = payload.flags?.length > 0;
+  if (payload.outOfSpec) {
+    // out of spec — red square
+    return (
+      <rect
+        x={cx - 4.5} y={cy - 4.5} width={9} height={9}
+        fill="var(--alarm)" stroke="#fff" strokeWidth={1}
+      />
+    );
+  }
   return (
     <circle
       cx={cx} cy={cy} r={flagged ? 5 : 3}
@@ -49,8 +62,12 @@ export default function ControlChart({
         <Tooltip
           formatter={(v: any) => [`${Number(v).toFixed(3)}${unit ? " " + unit : ""}`, "Value"]}
           labelFormatter={(l: any, p: any) => {
-            const flags = p?.[0]?.payload?.flags ?? [];
-            return flags.length ? `${l} — OUT OF CONTROL (${flags.join(", ")})` : String(l);
+            const pl = p?.[0]?.payload;
+            const flags = pl?.flags ?? [];
+            const parts: string[] = [];
+            if (flags.length) parts.push(`OUT OF CONTROL (${flags.join(", ")})`);
+            if (pl?.outOfSpec) parts.push("OUT OF SPEC (outside LSL/USL)");
+            return parts.length ? `${l} — ${parts.join(" · ")}` : String(l);
           }}
         />
         <ReferenceLine y={ucl} stroke="var(--alarm)" strokeDasharray="4 3"

@@ -8,7 +8,9 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectOverview({ params }: { params: { projectId: string } }) {
+export default async function ProjectOverview({ params, searchParams }: {
+  params: { projectId: string }; searchParams: { cat?: string };
+}) {
   const project = await getProject(params.projectId);
   if (!project) notFound();
   const [alerts, streams, capas, tasks] = await Promise.all([
@@ -29,9 +31,11 @@ export default async function ProjectOverview({ params }: { params: { projectId:
         <Stat label="Open CAPAs" value={String(openCapas.length)} tone={openCapas.length ? "warn" : "ok"} />
         <Stat label="Overdue tasks" value={String(overdue)} tone={overdue ? "alarm" : "ok"} />
       </div>
-      <Card title="Alert inbox">
-        <AlertList alerts={alerts} />
-      </Card>
+      <div id="alert-inbox">
+        <Card title="Alert inbox">
+          <AlertList alerts={alerts as any} initialCategory={searchParams.cat} />
+        </Card>
+      </div>
       <p className="text-xs text-steel mt-4">
         New here? Start with a <Link className="text-accent font-semibold" href={`/p/${project.id}/playbooks`}>guided playbook</Link> — it walks the whole DMAIC loop and records the team&apos;s decisions along the way.
       </p>

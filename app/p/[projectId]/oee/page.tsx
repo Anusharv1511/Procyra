@@ -1,4 +1,5 @@
 import { Card, PageHeader, EmptyState } from "@/components/ui";
+import AlertsBanner from "@/components/AlertsBanner";
 import { ActionForm, Submit } from "@/components/forms";
 import { createStream } from "@/app/actions";
 import { getProject } from "@/lib/data";
@@ -21,6 +22,7 @@ export default async function OeeList({ params }: { params: { projectId: string 
   return (
     <div>
       <PageHeader eyebrow="Monitor & track" title="OEE" />
+      <AlertsBanner projectId={project.id} sourceTypes={["OEE"]} scopeLabel="this project's OEE logs" inboxCategory="OEE" />
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           {streams.length === 0 ? (

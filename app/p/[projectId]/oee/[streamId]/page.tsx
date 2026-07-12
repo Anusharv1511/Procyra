@@ -2,6 +2,9 @@ import { Card, PageHeader } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
 import { addOeePoint } from "@/app/actions";
 import OeeTrend from "@/components/charts/OeeTrend";
+import AlertsBanner from "@/components/AlertsBanner";
+import HelpTip from "@/components/HelpTip";
+import { GLOSSARY } from "@/lib/glossary";
 import Gauge from "@/components/charts/Gauge";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
@@ -28,6 +31,7 @@ export default async function OeeDetail({ params }: { params: { projectId: strin
   return (
     <div>
       <PageHeader eyebrow="Monitor & track · OEE" title={stream.name} />
+      <AlertsBanner projectId={project.id} streamId={stream.id} scopeLabel="this OEE log" inboxCategory="OEE" />
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           <Card title="Trend">
@@ -41,10 +45,11 @@ export default async function OeeDetail({ params }: { params: { projectId: strin
             {latest ? (
               <>
                 <Gauge value={latest.oee} target={target} label="OEE" />
+                <p className="text-xs text-steel mt-1">OEE<HelpTip text={GLOSSARY.oee} term="OEE" /></p>
                 <dl className="text-sm mt-2 space-y-1">
-                  <div className="flex justify-between"><dt className="text-steel">Availability</dt><dd className="mono">{(latest.availability * 100).toFixed(1)}%</dd></div>
-                  <div className="flex justify-between"><dt className="text-steel">Performance</dt><dd className="mono">{(latest.performance * 100).toFixed(1)}%</dd></div>
-                  <div className="flex justify-between"><dt className="text-steel">Quality</dt><dd className="mono">{(latest.quality * 100).toFixed(1)}%</dd></div>
+                  <div className="flex justify-between"><dt className="text-steel">Availability<HelpTip text={GLOSSARY.availability} term="Availability" /></dt><dd className="mono">{(latest.availability * 100).toFixed(1)}%</dd></div>
+                  <div className="flex justify-between"><dt className="text-steel">Performance<HelpTip text={GLOSSARY.performance} term="Performance" /></dt><dd className="mono">{(latest.performance * 100).toFixed(1)}%</dd></div>
+                  <div className="flex justify-between"><dt className="text-steel">Quality<HelpTip text={GLOSSARY.quality} term="Quality" /></dt><dd className="mono">{(latest.quality * 100).toFixed(1)}%</dd></div>
                 </dl>
               </>
             ) : <p className="text-sm text-steel">No entries yet.</p>}

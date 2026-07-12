@@ -1,5 +1,7 @@
 import { Card, PageHeader, Stat, EmptyState } from "@/components/ui";
 import Histogram from "@/components/charts/Histogram";
+import AlertsBanner from "@/components/AlertsBanner";
+import { GLOSSARY } from "@/lib/glossary";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
 import { asc, eq } from "drizzle-orm";
@@ -66,17 +68,18 @@ export default async function Capability({ params, searchParams }: {
       content = (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <Stat label="Cp (within)" value={fmt(cap.cp)} tone={tone(cap.cp)} />
-            <Stat label="Cpk (within)" value={fmt(cap.cpk)} tone={tone(cap.cpk)} />
-            <Stat label="Pp (overall)" value={fmt(cap.pp)} tone={tone(cap.pp)} />
-            <Stat label="Ppk (overall)" value={fmt(cap.ppk)} tone={tone(cap.ppk)} />
+            <Stat label="Cp (within)" value={fmt(cap.cp)} tone={tone(cap.cp)} help={GLOSSARY.cp} />
+            <Stat label="Cpk (within)" value={fmt(cap.cpk)} tone={tone(cap.cpk)} help={GLOSSARY.cpk} />
+            <Stat label="Pp (overall)" value={fmt(cap.pp)} tone={tone(cap.pp)} help={GLOSSARY.pp} />
+            <Stat label="Ppk (overall)" value={fmt(cap.ppk)} tone={tone(cap.ppk)} help={GLOSSARY.ppk} />
           </div>
           <Card title="Distribution vs. specification">
             <Histogram bins={bins.map(({ bin, count }) => ({ bin, count }))}
               lslBin={nearest(selected.specLow)} uslBin={nearest(selected.specHigh)} />
             <p className="text-xs text-steel mt-2">
               n = {cap.n} · mean {cap.mean.toFixed(3)} · σ within {cap.sigmaWithin.toFixed(4)} (R̄/d₂ method) · σ overall {cap.sigmaOverall.toFixed(4)} (sample s).
-              Cpk below {selected.cpkThreshold} raises an alert automatically when new data arrives. Indices assume approximate normality — check the histogram shape before quoting them.
+              Cpk below {selected.cpkThreshold} raises an alert automatically when new data arrives — this alert tracks Cpk (short-term/within) only; Ppk (overall) is shown for reference but does not trigger an alert.
+              Indices assume approximate normality — check the histogram shape before quoting them.
             </p>
           </Card>
         </>
@@ -87,6 +90,7 @@ export default async function Capability({ params, searchParams }: {
   return (
     <div>
       <PageHeader eyebrow="Measure & analyze" title="Process capability" />
+      <AlertsBanner projectId={project.id} sourceTypes={["CAPABILITY"]} scopeLabel="this project's capability checks" inboxCategory="CAPABILITY" />
       {streams.length > 0 && (
         <div className="mb-4 flex gap-2 flex-wrap">
           {streams.map(s => (
