@@ -3,6 +3,7 @@ import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
 import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,8 @@ export default async function Decisions({ params }: { params: { projectId: strin
       <PageHeader eyebrow="Risk & compliance" title="Decision log" />
       {rows.length === 0 ? (
         <EmptyState title="No decisions recorded yet"
-          body="Every decision gate in a guided playbook lands here: what the app suggested, what the team chose, who decided, and why. An audit-friendly trail of judgment calls." />
+          body="Every decision gate in a guided playbook lands here: what the app suggested, what the team chose, who decided, and why. An audit-friendly trail of judgment calls."
+          cta={<Link className="btn" href={`/p/${project.id}/playbooks`}>Start a guided playbook</Link>} />
       ) : (
         <div className="space-y-3">
           {rows.map(d => (

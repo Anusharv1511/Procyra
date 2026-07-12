@@ -25,7 +25,8 @@ export default async function FmeaList({ params }: { params: { projectId: string
         <div className="lg:col-span-2 space-y-3">
           {fmeas.length === 0 ? (
             <EmptyState title="No FMEAs yet"
-              body="A living FMEA register: RPN is computed and the table re-sorted automatically on every edit, and items crossing your action threshold raise an alert." />
+              body="A living FMEA register: RPN is computed and the table re-sorted automatically on every edit, and items crossing your action threshold raise an alert."
+              cta={<Link className="btn" href="#new-fmea">Create FMEA</Link>} />
           ) : fmeas.map(f => (
             <Link key={f.id} href={`/p/${project.id}/fmea/${f.id}`} className="card px-4 py-3 flex justify-between items-center hover:shadow-sm">
               <span className="font-semibold text-sm">{f.name}</span>
@@ -33,7 +34,7 @@ export default async function FmeaList({ params }: { params: { projectId: string
             </Link>
           ))}
         </div>
-        <Card title="New FMEA">
+        <Card title="New FMEA" id="new-fmea">
           <ActionForm action={createFmea} className="space-y-3">
             <input type="hidden" name="projectId" value={project.id} />
             <div><label className="label">Name</label><input className="input" name="name" required placeholder="e.g. Final assembly PFMEA" /></div>

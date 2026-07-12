@@ -1,10 +1,11 @@
-import { Card, PageHeader, Badge } from "@/components/ui";
+import { Card, PageHeader, Badge, EmptyState } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
 import { createCapa, updateCapa } from "@/app/actions";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
 import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,9 @@ export default async function CapaPage({ params }: { params: { projectId: string
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-3">
           {capas.length === 0 && (
-            <Card><p className="text-sm text-steel">No CAPAs yet. Create one below — or let the app draft one for you when a defect recurs.</p></Card>
+            <EmptyState title="No CAPAs yet"
+              body="Create one below, or let the app draft one for you automatically when a defect recurs."
+              cta={<Link className="btn" href="#new-capa">Create CAPA</Link>} />
           )}
           {capas.map(c => (
             <Card key={c.id}>
@@ -60,7 +63,7 @@ export default async function CapaPage({ params }: { params: { projectId: string
             </Card>
           ))}
         </div>
-        <Card title="New CAPA">
+        <Card title="New CAPA" id="new-capa">
           <ActionForm action={createCapa} className="space-y-3">
             <input type="hidden" name="projectId" value={project.id} />
             <div><label className="label">Title</label><input className="input" name="title" required /></div>

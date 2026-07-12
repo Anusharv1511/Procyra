@@ -35,7 +35,8 @@ export default async function SpcList({ params }: { params: { projectId: string 
         <div className="lg:col-span-2 space-y-3">
           {spcStreams.length === 0 ? (
             <EmptyState title="No SPC streams yet"
-              body="Create a stream for each measured characteristic (a dimension, a weight, a temperature). Log measurements as they happen — the app evaluates Western Electric rules on every entry and flags out-of-control points automatically." />
+              body="Create a stream for each measured characteristic (a dimension, a weight, a temperature). Log measurements as they happen — the app evaluates Western Electric rules on every entry and flags out-of-control points automatically."
+              cta={<Link className="btn" href="#new-stream">Create SPC stream</Link>} />
           ) : spcStreams.map(s => {
             const last = lastByStream[s.id];
             const stale = last ? (Date.now() - +new Date(last)) / 86400000 > (staleCutoffs[s.cadence] ?? 1.5) : true;
@@ -53,7 +54,7 @@ export default async function SpcList({ params }: { params: { projectId: string 
             );
           })}
         </div>
-        <Card title="New SPC stream">
+        <Card title="New SPC stream" id="new-stream">
           <ActionForm action={createStream} className="space-y-3">
             <input type="hidden" name="projectId" value={project.id} />
             <NewSpcStreamFields />
