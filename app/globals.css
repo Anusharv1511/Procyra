@@ -59,6 +59,16 @@ table.data td { padding: .5rem .75rem; border-bottom: 1px solid var(--line); ver
 table.data tr:last-child td { border-bottom: none; }
 /* Fix 5 — highlight the existing FMEA row when jumped to via "View existing row" */
 table.data tr:target td { background: rgba(201, 138, 27, 0.14); }
+/* Part M — micro-interactions. All under 300ms; the reduced-motion rule
+   below already disables every animation/transition globally. */
+@keyframes pop-in { from { opacity: 0; transform: translateY(4px) scale(.985); } to { opacity: 1; transform: none; } }
+.anim-pop { animation: pop-in 180ms ease-out; }
+.card { transition: box-shadow 150ms ease, border-color 150ms ease; }
+.btn { transition: filter 120ms ease, transform 100ms ease; }
+.btn:active:not(:disabled) { transform: scale(.97); }
+a.card:hover { border-color: var(--steel); }
+kbd { font-size: .7rem; }
+
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 /* Part B1 — print / save-as-PDF styles. Hides chrome (nav, forms, buttons),

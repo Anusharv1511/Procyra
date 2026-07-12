@@ -1,7 +1,7 @@
 import { Card, PageHeader, Badge } from "@/components/ui";
-import { ActionForm, Submit } from "@/components/forms";
-import { advancePlaybook } from "@/app/actions";
+import GuidedStep from "@/components/GuidedStep";
 import { PLAYBOOKS } from "@/lib/playbooks";
+import { GUIDED_INTAKE, TOOL_META } from "@/lib/guided";
 import { getProject } from "@/lib/data";
 import { db, t } from "@/db";
 import { eq, inArray, sql } from "drizzle-orm";
@@ -44,6 +44,31 @@ export default async function PlaybookRun({ params }: { params: { projectId: str
   const openCapas = (capas as any[]).filter((c: any) => c.status !== "closed" && c.status !== "verified");
   const hasExisting = spcStreams.length || oeeStreams.length || openCapas.length || (fmeas as any[]).length || ncCount > 0;
 
+  // Part P — step state now also carries structured fields (intake answers,
+  // ranked recommendations, chosen tool, pulled tool result). Render each
+  // shape readably instead of String(v).
+  const renderStateEntry = (stepKey: string, k: string, v: any) => {
+    if (k === "intake" && v && typeof v === "object") {
+      const qs = GUIDED_INTAKE[run.playbookKey]?.[stepKey] ?? [];
+      return Object.entries(v as Record<string, string>).map(([qk, ans]) => {
+        const q = qs.find(x => x.key === qk);
+        const opt = q?.options.find(o => o.value === ans);
+        return <div key={qk}><span className="font-semibold">{q?.question ?? qk}:</span> {opt?.label ?? String(ans)}</div>;
+      });
+    }
+    if (k === "recommendations" && Array.isArray(v)) {
+      return <div><span className="font-semibold">shortlist suggested:</span> {v.map((r: any, i: number) => `#${i + 1} ${r.label} (fit ${r.score})`).join(", ")}</div>;
+    }
+    if (k === "recommendedTool") return null; // covered by the shortlist line
+    if (k === "chosenTool") {
+      return <div><span className="font-semibold">tool chosen by team:</span> {v ? (TOOL_META as any)[v]?.label ?? String(v) : "none (skipped)"}</div>;
+    }
+    if (k === "toolResult" && v && typeof v === "object") {
+      return <div><span className="font-semibold">live result pulled:</span> {(v as any).summary}{(v as any).detail ? ` ${(v as any).detail}` : ""}</div>;
+    }
+    return <div><span className="font-semibold">{k}:</span> {String(v)}</div>;
+  };
+
   return (
     <div>
       <PageHeader eyebrow={`Guided mode · ${pb.title}`} title={done ? "Completed" : step.title} />
@@ -72,7 +97,7 @@ export default async function PlaybookRun({ params }: { params: { projectId: str
                 <span className="font-semibold">{s.phase} — {s.title}</span>
                 <dl className="mt-1 text-xs text-steel">
                   {Object.entries(state[s.key] ?? {}).map(([k, v]) => (
-                    <div key={k}><span className="font-semibold">{k}:</span> {String(v)}</div>
+                    <div key={k}>{renderStateEntry(s.key, k, v)}</div>
                   ))}
                 </dl>
               </li>
@@ -100,39 +125,18 @@ export default async function PlaybookRun({ params }: { params: { projectId: str
                 </Link>
               )}
             </Card>
-            <Card title={step.gate ? "Record what happened + the team's decision" : "Record what happened"}>
-              <ActionForm action={advancePlaybook} className="space-y-4">
-                <input type="hidden" name="projectId" value={project.id} />
-                <input type="hidden" name="runId" value={run.id} />
-                {(step.inputs ?? []).map(inp => (
-                  <div key={inp.key}>
-                    <label className="label">{inp.label}</label>
-                    {inp.textarea
-                      ? <textarea className="input" name={inp.key} rows={3} placeholder={inp.placeholder} />
-                      : <input className="input" name={inp.key} placeholder={inp.placeholder} />}
-                  </div>
-                ))}
-                {step.gate && (
-                  <fieldset className="space-y-2">
-                    <legend className="label">{step.gate.question}</legend>
-                    <p className="text-xs text-steel mb-1">The app suggests — your team decides. Pick what was actually agreed, not what the app likes.</p>
-                    {step.gate.options.map(o => (
-                      <label key={o.value} className="card flex gap-3 px-3 py-2 cursor-pointer items-start">
-                        <input type="radio" name="gate_choice" value={o.label} className="mt-1" />
-                        <span>
-                          <span className="text-sm font-semibold">{o.label}</span>
-                          <span className="block text-xs text-steel">{o.rationale}</span>
-                        </span>
-                      </label>
-                    ))}
-                    <div className="grid sm:grid-cols-2 gap-3 mt-2">
-                      <div><label className="label">Why (team rationale)</label><input className="input" name="gate_rationale" /></div>
-                      <div><label className="label">Decided by</label><input className="input" name="gate_decidedBy" placeholder="e.g. Line 4 kaizen team" /></div>
-                    </div>
-                  </fieldset>
-                )}
-                <Submit>{run.stepIndex + 1 === pb.steps.length ? "Finish playbook" : "Save & continue"}</Submit>
-              </ActionForm>
+            {/* Part P — one question at a time; at Measure/Analyze the intake
+                answers produce a ranked tool shortlist and the chosen tool's
+                real output is pulled back in on submit. */}
+            <Card title={step.gate ? "Guided intake + the team's decision" : "Guided intake"}>
+              <GuidedStep
+                projectId={project.id}
+                runId={run.id}
+                step={step}
+                stepKey={step.key}
+                intake={GUIDED_INTAKE[run.playbookKey]?.[step.key] ?? []}
+                isLast={run.stepIndex + 1 === pb.steps.length}
+              />
             </Card>
           </div>
           <div className="space-y-4">
@@ -182,7 +186,7 @@ export default async function PlaybookRun({ params }: { params: { projectId: str
                         <Badge tone="ok">{s.phase}</Badge>
                         <dl className="mt-1 text-steel">
                           {Object.entries(state[s.key]).map(([k, v]) => (
-                            <div key={k}><span className="font-semibold">{k}:</span> {String(v)}</div>
+                            <div key={k}>{renderStateEntry(s.key, k, v)}</div>
                           ))}
                         </dl>
                       </li>

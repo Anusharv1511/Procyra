@@ -2,6 +2,7 @@ import AppShell from "@/components/AppShell";
 import { Card, PageHeader, EmptyState } from "@/components/ui";
 import { ActionForm, Submit } from "@/components/forms";
 import { createProject, seedDemoProject } from "@/app/actions";
+import { seedSemiconductorProject, seedLogisticsProject } from "@/app/actions2";
 import ProjectRowActions from "@/components/ProjectRowActions";
 import { getSessionUser } from "@/lib/auth";
 import { myProjects, myWorkspaces } from "@/lib/data";
@@ -42,14 +43,24 @@ export default async function Projects({ searchParams }: { searchParams: { archi
   // with a full DMAIC scenario generated through the app's real rules engine.
   const loadExampleForm = (
     <div className="border-t border-line pt-3 mt-4">
-      <ActionForm action={seedDemoProject}>
-        <Submit quiet>Load example project</Submit>
-      </ActionForm>
+      <p className="label">Load an example project</p>
+      <div className="flex flex-wrap gap-2">
+        <ActionForm action={seedDemoProject}>
+          <Submit quiet>Automotive</Submit>
+        </ActionForm>
+        <ActionForm action={seedSemiconductorProject}>
+          <Submit quiet>Semiconductor</Submit>
+        </ActionForm>
+        <ActionForm action={seedLogisticsProject}>
+          <Submit quiet>Logistics</Submit>
+        </ActionForm>
+      </div>
       <p className="text-xs text-steel mt-2">
-        Creates a new “Demo: Flange Machining” project with a completed DMAIC playbook,
-        live SPC data (with real out-of-control points), capability, an auto-drafted CAPA,
-        an FMEA and an OEE log — so you can explore a working example without entering data.
-        Takes a few seconds.
+        Each creates a brand-new demo project (never touching existing ones) generated through the
+        app&apos;s real rules engine: a completed DMAIC playbook, live SPC data with genuine
+        out-of-control points, alerts, an auto-drafted CAPA and an FMEA — machining flange OD
+        (automotive), etch critical dimension at Cpk 1.67 (semiconductor), or pick-station errors
+        and OEE (logistics). Takes a few seconds.
       </p>
     </div>
   );
@@ -59,6 +70,9 @@ export default async function Projects({ searchParams }: { searchParams: { archi
   // per-project active-playbook count from the existing playbook_runs table.
   const alertCounts: Record<string, number> = {};
   const playbookCounts: Record<string, number> = {};
+  // Part M — "last activity" per project: the most recent of any logged data
+  // point, alert, defect or CAPA. Read-only aggregation over existing tables.
+  const lastActivity: Record<string, Date> = {};
   if (ids.length) {
     const [aRows, pRows] = await Promise.all([
       db.select({ projectId: t.alerts.projectId, n: sql<number>`count(*)` })
@@ -72,7 +86,31 @@ export default async function Projects({ searchParams }: { searchParams: { archi
     ]);
     for (const r of aRows) alertCounts[r.projectId] = Number(r.n);
     for (const r of pRows) playbookCounts[r.projectId] = Number(r.n);
+
+    const [dpLast, alLast, ncLast, capaLast] = await Promise.all([
+      db.select({ projectId: t.streams.projectId, last: sql<string>`max(${t.dataPoints.createdAt})` })
+        .from(t.dataPoints).innerJoin(t.streams, eq(t.streams.id, t.dataPoints.streamId))
+        .where(inArray(t.streams.projectId, ids)).groupBy(t.streams.projectId),
+      db.select({ projectId: t.alerts.projectId, last: sql<string>`max(${t.alerts.createdAt})` })
+        .from(t.alerts).where(inArray(t.alerts.projectId, ids)).groupBy(t.alerts.projectId),
+      db.select({ projectId: t.nonConformances.projectId, last: sql<string>`max(${t.nonConformances.createdAt})` })
+        .from(t.nonConformances).where(inArray(t.nonConformances.projectId, ids)).groupBy(t.nonConformances.projectId),
+      db.select({ projectId: t.capas.projectId, last: sql<string>`max(${t.capas.createdAt})` })
+        .from(t.capas).where(inArray(t.capas.projectId, ids)).groupBy(t.capas.projectId),
+    ]);
+    for (const rows of [dpLast, alLast, ncLast, capaLast])
+      for (const r of rows) {
+        if (!r.last) continue;
+        const d = new Date(r.last);
+        if (!lastActivity[r.projectId] || d > lastActivity[r.projectId]) lastActivity[r.projectId] = d;
+      }
   }
+
+  const ago = (d?: Date) => {
+    if (!d) return null;
+    const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+    return days <= 0 ? "today" : days === 1 ? "yesterday" : days < 30 ? `${days}d ago` : `${Math.floor(days / 30)}mo ago`;
+  };
 
   if (isBrandNew) {
     return (
@@ -118,7 +156,7 @@ export default async function Projects({ searchParams }: { searchParams: { archi
               />
             ) : (
               <table className="data">
-                <thead><tr><th>Project</th><th>Workspace</th><th>Industry</th><th>Open alerts</th><th>Active playbooks</th><th>Created</th><th></th></tr></thead>
+                <thead><tr><th>Project</th><th>Workspace</th><th>Industry</th><th>Open alerts</th><th>Active playbooks</th><th>Last activity</th><th>Created</th><th></th></tr></thead>
                 <tbody>
                   {listed.map(p => {
                     const nAlerts = alertCounts[p.id] ?? 0;
@@ -138,6 +176,7 @@ export default async function Projects({ searchParams }: { searchParams: { archi
                             ? <Link href={`/p/${p.id}/playbooks`} className="font-semibold text-accent hover:underline">{nRuns}</Link>
                             : <span className="text-steel">0</span>}
                         </td>
+                        <td className="text-steel text-xs">{ago(lastActivity[p.id]) ?? "—"}</td>
                         <td className="text-steel mono">{new Date(p.createdAt).toLocaleDateString()}</td>
                         <td><ProjectRowActions projectId={p.id} name={p.name} archived={showArchived} /></td>
                       </tr>

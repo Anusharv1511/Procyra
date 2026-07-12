@@ -9,6 +9,7 @@
 
 import { useMemo, useState } from "react";
 import { setAlertStatus, resolveAlerts } from "@/app/actions";
+import { capaFromAlert } from "@/app/actions2";
 import { ActionForm, Submit } from "@/components/forms";
 import { Badge } from "@/components/ui";
 
@@ -22,6 +23,17 @@ const toneOf = (sev: string) =>
   sev === "critical" ? ("alarm" as const) : sev === "warning" ? ("warn" as const) : ("quiet" as const);
 const borderOf = (sev: string) =>
   sev === "critical" ? "var(--alarm)" : sev === "warning" ? "var(--warn)" : "var(--line)";
+
+/** Part N — draft a CAPA from an alert in one click (title carries the alert context). */
+function DraftCapa({ a }: { a: Alert }) {
+  return (
+    <ActionForm action={capaFromAlert}>
+      <input type="hidden" name="projectId" value={a.projectId} />
+      <input type="hidden" name="alertId" value={a.id} />
+      <Submit quiet>Draft CAPA</Submit>
+    </ActionForm>
+  );
+}
 
 function ResolveOne({ a }: { a: Alert }) {
   return (
@@ -78,7 +90,7 @@ export default function AlertList({ alerts, projectNames, initialCategory }: {
             {Object.entries(projectNames).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
         )}
-        <select className="input !w-auto !py-1 !text-xs" value={category} onChange={e => setCategory(e.target.value)} aria-label="Filter by category">
+        <select className="input !w-auto !py-1 !text-xs" value={category} onChange={e => setCategory(e.target.value)} aria-label="Filter by category" data-kbd="filter">
           <option value="all">All categories</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -138,6 +150,7 @@ export default function AlertList({ alerts, projectNames, initialCategory }: {
                   <p className="text-xs text-steel mt-0.5 mono">{new Date(first.createdAt).toLocaleString()}</p>
                 </div>
                 <div className="flex gap-2">
+                  <DraftCapa a={first} />
                   {grouped ? (
                     <ActionForm action={resolveAlerts}>
                       <input type="hidden" name="ids" value={g.items.map(a => a.id).join(",")} />
